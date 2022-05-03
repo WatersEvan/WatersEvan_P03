@@ -11,17 +11,20 @@ public class MovementInput : MonoBehaviour {
     public float Velocity;
     [Space]
 
-	public float InputX;
-	public float InputZ;
-	public Vector3 desiredMoveDirection;
+	private Animator anim;
+	private Camera cam;
+	private CharacterController controller;
+	private bool isGrounded;
+	private Vector3 desiredMoveDirection;
+	private float InputX;
+	private float InputZ;
+
 	public bool blockRotationPlayer;
 	public float desiredRotationSpeed = 0.1f;
-	public Animator anim;
+
 	public float Speed;
 	public float allowPlayerRotation = 0.1f;
-	public Camera cam;
-	public CharacterController controller;
-	public bool isGrounded;
+
 
     [Header("Animation Smoothing")]
     [Range(0, 1f)]
@@ -36,35 +39,29 @@ public class MovementInput : MonoBehaviour {
     public float verticalVel;
     private Vector3 moveVector;
 
-	// Use this for initialization
 	void Start () {
 		anim = this.GetComponent<Animator> ();
 		cam = Camera.main;
 		controller = this.GetComponent<CharacterController> ();
 	}
 	
-	// Update is called once per frame
 	void Update () {
+
 		InputMagnitude ();
 
         isGrounded = controller.isGrounded;
         if (isGrounded)
-        {
             verticalVel -= 0;
-        }
         else
-        {
             verticalVel -= 1;
-        }
+
         moveVector = new Vector3(0, verticalVel * .2f * Time.deltaTime, 0);
         controller.Move(moveVector);
-
-
     }
 
-    void PlayerMoveAndRotation() {
-		InputX = Input.GetAxis ("Horizontal");
-		InputZ = Input.GetAxis ("Vertical");
+	void PlayerMoveAndRotation() {
+		InputX = Input.GetAxis("Horizontal");
+		InputZ = Input.GetAxis("Vertical");
 
 		var camera = Camera.main;
 		var forward = cam.transform.forward;
@@ -73,14 +70,20 @@ public class MovementInput : MonoBehaviour {
 		forward.y = 0f;
 		right.y = 0f;
 
-		forward.Normalize ();
-		right.Normalize ();
+		forward.Normalize();
+		right.Normalize();
 
 		desiredMoveDirection = forward * InputZ + right * InputX;
 
 		if (blockRotationPlayer == false) {
-			transform.rotation = Quaternion.Slerp (transform.rotation, Quaternion.LookRotation (desiredMoveDirection), desiredRotationSpeed);
-            controller.Move(desiredMoveDirection * Time.deltaTime * Velocity);
+			//Camera
+			transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(desiredMoveDirection), desiredRotationSpeed);
+			controller.Move(desiredMoveDirection * Time.deltaTime * Velocity);
+		}
+		else
+		{
+			//Strafe
+			controller.Move((transform.forward * InputZ + transform.right  * InputX) * Time.deltaTime * Velocity);
 		}
 	}
 
@@ -91,39 +94,36 @@ public class MovementInput : MonoBehaviour {
 
     public void RotateToCamera(Transform t)
     {
-
-        var camera = Camera.main;
         var forward = cam.transform.forward;
-        var right = cam.transform.right;
 
         desiredMoveDirection = forward;
+		Quaternion lookAtRotation = Quaternion.LookRotation(desiredMoveDirection);
+		Quaternion lookAtRotationOnly_Y = Quaternion.Euler(transform.rotation.eulerAngles.x, lookAtRotation.eulerAngles.y, transform.rotation.eulerAngles.z);
 
-		Quaternion lookatRotation =
-			Quaternion.LookRotation(desiredMoveDirection);
-		Quaternion lookAtRotationOnly_Y =
-			Quaternion.Euler(transform.rotation.eulerAngles.x, lookatRotation.eulerAngles.y, transform.rotation.eulerAngles.z);
-
-        t.rotation = Quaternion.Slerp(transform.rotation, /*Quaternion.LookRotation(desiredMoveDirection)*/ lookAtRotationOnly_Y, desiredRotationSpeed);
-    }
+		t.rotation = Quaternion.Slerp(transform.rotation, lookAtRotationOnly_Y, desiredRotationSpeed);
+	}
 
 	void InputMagnitude() {
 		//Calculate Input Vectors
 		InputX = Input.GetAxis ("Horizontal");
 		InputZ = Input.GetAxis ("Vertical");
 
-		//anim.SetFloat ("InputZ", InputZ, VerticalAnimTime, Time.deltaTime * 2f);
-		//anim.SetFloat ("InputX", InputX, HorizontalAnimSmoothTime, Time.deltaTime * 2f);
-
 		//Calculate the Input Magnitude
 		Speed = new Vector2(InputX, InputZ).sqrMagnitude;
 
-        //Physically move player
+		//Change animation mode if rotation is blocked
+		anim.SetBool("shooting", blockRotationPlayer);
 
+		//Physically move player
 		if (Speed > allowPlayerRotation) {
 			anim.SetFloat ("Blend", Speed, StartAnimTime, Time.deltaTime);
+			anim.SetFloat("X", InputX, StartAnimTime/3, Time.deltaTime);
+			anim.SetFloat("Y", InputZ, StartAnimTime/3, Time.deltaTime);
 			PlayerMoveAndRotation ();
 		} else if (Speed < allowPlayerRotation) {
 			anim.SetFloat ("Blend", Speed, StopAnimTime, Time.deltaTime);
+			anim.SetFloat("X", InputX, StopAnimTime/ 3, Time.deltaTime);
+			anim.SetFloat("Y", InputZ, StopAnimTime/ 3, Time.deltaTime);
 		}
 	}
 }
